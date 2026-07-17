@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#146F65" />
+      <stop offset="100%" stop-color="#2A8056" />
+    </linearGradient>
+  </defs>
+  <!-- Outer smooth circular progress ring representing metrics continuity -->
+  <circle cx="64" cy="64" r="52" fill="none" stroke="url(#tealGrad)" stroke-width="12" stroke-linecap="round" stroke-dasharray="230 100" transform="rotate(-90 64 64)" />
+  <!-- Inner core health index center marker -->
+  <circle cx="64" cy="64" r="18" fill="#146F65" />
+</svg>
