@@ -1,6 +1,6 @@
 # Vitaliq
 
-Vitaliq is a private, multi-user health analytics dashboard and tracking platform backed by **Clerk** (Authentication & Identity) and **Supabase** (PostgreSQL Persistence & Row-Level Security). The application handles health tracking logs (body composition, blood pressure, blood glucose) and compiles them into statistics, targets progress checking, and explainable health insights.
+Vitaliq is a private, multi-user health analytics dashboard and tracking platform backed by **Clerk** (Authentication & Identity) and **Neon PostgreSQL** via **Drizzle ORM** (Persistence). The application handles health tracking logs (body composition, blood pressure, blood glucose) and compiles them into statistics, targets progress checking, and explainable health insights.
 
 ---
 
@@ -18,7 +18,7 @@ Vitaliq serves as a health ledger and analytics workbench, built around:
 
 The application enforces a decoupled, unidirectional data flow:
 ```text
-Clerk (Identity Provider) & Supabase (Postgres Database)
+Clerk (Identity Provider) & Neon (Postgres Database)
                       ↓
           Repositories (Row Mappers)
                       ↓
@@ -41,7 +41,7 @@ Clerk (Identity Provider) & Supabase (Postgres Database)
 
 *   **Core:** Next.js 15 (App Router), React 19, TypeScript
 *   **Styling:** PostCSS, Tailwind CSS v4, Vanilla CSS variable themes
-*   **Persistence:** Supabase JS client, PostgreSQL
+*   **Persistence:** Neon PostgreSQL, Drizzle ORM
 *   **Authentication:** Clerk SDK, Middleware routing guards
 *   **Charts:** Recharts (responsive line charts, synchronized hover, time sliders)
 *   **Calculators & Math:** date-fns, date-fns-tz, Zod
@@ -54,16 +54,15 @@ Clerk (Identity Provider) & Supabase (Postgres Database)
 ### 1. Prerequisites
 *   Node.js 20 or newer
 *   pnpm 10 or newer
-*   A Supabase database instance
+*   A Neon PostgreSQL database instance
 *   A Clerk user authentication project
 
 ### 2. Environment Variables
 Create a local `.env.local` file in the root of the project:
 
 ```env
-# Supabase Configuration (Database connection)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-secret
+# Database Configuration (Neon)
+DATABASE_URL=postgres://user:password@hostname/dbname
 
 # Clerk Authentication Configuration
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
@@ -74,10 +73,9 @@ APP_TIMEZONE=Asia/Kolkata
 ```
 
 ### 3. Database Schema Setup
-Deploy the database migration scripts located inside `supabase/migrations/` directly to your Supabase instance:
+Generate and run migrations using Drizzle ORM against your Neon database:
 ```bash
-# Set up tables, cascade relations, index fields, and Row-Level Security policies
-# The initial schema maps Clerk user IDs (sub JWT fields) directly to SQL logs rows.
+pnpm drizzle-kit push
 ```
 
 ### 4. Running Locally
@@ -115,6 +113,6 @@ The application hosts 29 assertions across 5 core suites checking mathematical l
 ## 7. Production Readiness Checklist
 
 Before pushing to production:
-1.  **Row-Level Security (RLS):** Ensure RLS is active on all Supabase tables (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY`). Policies must verify rows using `auth.jwt() ->> 'sub'`.
-2.  **Secret Scrubbing:** Confirm `SUPABASE_SERVICE_ROLE_KEY` is loaded only in secure Server Actions or Server Components.
+1.  **Tenant Isolation:** Repositories filter records using the authenticated Clerk `userId`.
+2.  **Secret Scrubbing:** Confirm `DATABASE_URL` is loaded only in secure Server Actions or Server Components, and never exposed to the client.
 3.  **Build Check:** Build static compilation payloads locally using `pnpm build` with staging environment variables to guarantee successful route generation.

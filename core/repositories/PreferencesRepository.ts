@@ -1,4 +1,6 @@
-import { getSupabaseServer } from "@/lib/database/client";
+import { db } from "@/db/client";
+import { userPreferences } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { WeightUnit, HeightUnit, GlucoseUnit } from "@/lib/types";
 
 export interface UserPreferences {
@@ -10,69 +12,54 @@ export interface UserPreferences {
   theme: "system" | "light" | "dark";
 }
 
-export interface PreferencesDBRow {
-  user_id: string;
-  weight_unit: string;
-  height_unit: string;
-  glucose_unit: string;
-  timezone: string;
-  theme: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export function mapPreferencesRowToDomain(row: PreferencesDBRow): UserPreferences {
+export function mapPreferencesRowToDomain(row: any): UserPreferences {
   return {
-    userId: row.user_id,
-    weightUnit: row.weight_unit as WeightUnit,
-    heightUnit: row.height_unit as HeightUnit,
-    glucoseUnit: row.glucose_unit as GlucoseUnit,
+    userId: row.userId,
+    weightUnit: row.weightUnit as WeightUnit,
+    heightUnit: row.heightUnit as HeightUnit,
+    glucoseUnit: row.glucoseUnit as GlucoseUnit,
     timezone: row.timezone,
     theme: row.theme as UserPreferences["theme"],
   };
 }
 
 export class PreferencesRepository {
-  private getSupabase() {
-    return getSupabaseServer();
-  }
-
   async findByUserId(userId: string): Promise<UserPreferences | null> {
-    const { data, error } = await this.getSupabase()
-      .from("user_preferences")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const data = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId)).limit(1);
+      if (!data || data.length === 0) return null;
+      return mapPreferencesRowToDomain(data[0]);
+    } catch (error) {
       console.error("Error in PreferencesRepository.findByUserId:", error);
       throw error;
     }
-    return data ? mapPreferencesRowToDomain(data) : null;
   }
 
   async upsert(userId: string, data: Partial<Omit<UserPreferences, "userId">>): Promise<UserPreferences> {
-    const payload: Record<string, any> = {
-      user_id: userId,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const payload: Record<string, any> = {
+        userId,
+        updatedAt: new Date(),
+      };
 
-    if (data.weightUnit !== undefined) payload.weight_unit = data.weightUnit;
-    if (data.heightUnit !== undefined) payload.height_unit = data.heightUnit;
-    if (data.glucoseUnit !== undefined) payload.glucose_unit = data.glucoseUnit;
-    if (data.timezone !== undefined) payload.timezone = data.timezone;
-    if (data.theme !== undefined) payload.theme = data.theme;
+      if (data.weightUnit !== undefined) payload.weightUnit = data.weightUnit;
+      if (data.heightUnit !== undefined) payload.heightUnit = data.heightUnit;
+      if (data.glucoseUnit !== undefined) payload.glucoseUnit = data.glucoseUnit;
+      if (data.timezone !== undefined) payload.timezone = data.timezone;
+      if (data.theme !== undefined) payload.theme = data.theme;
 
-    const { data: row, error } = await this.getSupabase()
-      .from("user_preferences")
-      .upsert(payload, { onConflict: "user_id" })
-      .select()
-      .single();
+      const [row] = await db.insert(userPreferences)
+        .values(payload as any)
+        .onConflictDoUpdate({
+          target: userPreferences.userId,
+          set: payload
+        })
+        .returning();
 
-    if (error) {
+      return mapPreferencesRowToDomain(row);
+    } catch (error) {
       console.error("Error in PreferencesRepository.upsert:", error);
       throw error;
     }
-    return mapPreferencesRowToDomain(row);
   }
 }

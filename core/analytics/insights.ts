@@ -217,7 +217,7 @@ function calculateLoggingStreak(records: HealthRecord[], referenceDate: Date): n
   if (dates.length === 0) return 0;
 
   const refStr = referenceDate.toISOString().split("T")[0];
-  let streak = 0;
+  const streak = 0;
   const runner = new Date(referenceDate);
 
   // If the user has not logged today, check if they have a streak starting yesterday

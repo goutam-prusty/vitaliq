@@ -1,4 +1,6 @@
-import { getSupabaseServer } from "@/lib/database/client";
+import { db } from "@/db/client";
+import { userGoals } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export interface UserGoal {
   userId: string;
@@ -9,69 +11,54 @@ export interface UserGoal {
   goalNote?: string;
 }
 
-export interface GoalDBRow {
-  user_id: string;
-  target_weight_kg: number | null;
-  target_body_fat_pct: number | null;
-  target_date: string | null;
-  goal_start_date: string | null;
-  goal_note: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export function mapGoalRowToDomain(row: GoalDBRow): UserGoal {
+export function mapGoalRowToDomain(row: any): UserGoal {
   return {
-    userId: row.user_id,
-    targetWeightKg: row.target_weight_kg ? Number(row.target_weight_kg) : undefined,
-    targetBodyFatPercent: row.target_body_fat_pct ? Number(row.target_body_fat_pct) : undefined,
-    targetDate: row.target_date ?? undefined,
-    goalStartDate: row.goal_start_date ?? undefined,
-    goalNote: row.goal_note ?? undefined,
+    userId: row.userId,
+    targetWeightKg: row.targetWeightKg ? Number(row.targetWeightKg) : undefined,
+    targetBodyFatPercent: row.targetBodyFatPct ? Number(row.targetBodyFatPct) : undefined,
+    targetDate: row.targetDate ?? undefined,
+    goalStartDate: row.goalStartDate ?? undefined,
+    goalNote: row.goalNote ?? undefined,
   };
 }
 
 export class GoalRepository {
-  private getSupabase() {
-    return getSupabaseServer();
-  }
-
   async findByUserId(userId: string): Promise<UserGoal | null> {
-    const { data, error } = await this.getSupabase()
-      .from("user_goals")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const data = await db.select().from(userGoals).where(eq(userGoals.userId, userId)).limit(1);
+      if (!data || data.length === 0) return null;
+      return mapGoalRowToDomain(data[0]);
+    } catch (error) {
       console.error("Error in GoalRepository.findByUserId:", error);
       throw error;
     }
-    return data ? mapGoalRowToDomain(data) : null;
   }
 
   async upsert(userId: string, data: Partial<Omit<UserGoal, "userId">>): Promise<UserGoal> {
-    const payload: Record<string, any> = {
-      user_id: userId,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const payload: Record<string, any> = {
+        userId,
+        updatedAt: new Date(),
+      };
 
-    if (data.targetWeightKg !== undefined) payload.target_weight_kg = data.targetWeightKg ?? null;
-    if (data.targetBodyFatPercent !== undefined) payload.target_body_fat_pct = data.targetBodyFatPercent ?? null;
-    if (data.targetDate !== undefined) payload.target_date = data.targetDate || null;
-    if (data.goalStartDate !== undefined) payload.goal_start_date = data.goalStartDate || null;
-    if (data.goalNote !== undefined) payload.goal_note = data.goalNote || null;
+      if (data.targetWeightKg !== undefined) payload.targetWeightKg = data.targetWeightKg ? String(data.targetWeightKg) : null;
+      if (data.targetBodyFatPercent !== undefined) payload.targetBodyFatPct = data.targetBodyFatPercent ? String(data.targetBodyFatPercent) : null;
+      if (data.targetDate !== undefined) payload.targetDate = data.targetDate || null;
+      if (data.goalStartDate !== undefined) payload.goalStartDate = data.goalStartDate || null;
+      if (data.goalNote !== undefined) payload.goalNote = data.goalNote || null;
 
-    const { data: row, error } = await this.getSupabase()
-      .from("user_goals")
-      .upsert(payload, { onConflict: "user_id" })
-      .select()
-      .single();
+      const [row] = await db.insert(userGoals)
+        .values(payload as any)
+        .onConflictDoUpdate({
+          target: userGoals.userId,
+          set: payload
+        })
+        .returning();
 
-    if (error) {
+      return mapGoalRowToDomain(row);
+    } catch (error) {
       console.error("Error in GoalRepository.upsert:", error);
       throw error;
     }
-    return mapGoalRowToDomain(row);
   }
 }

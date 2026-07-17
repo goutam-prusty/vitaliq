@@ -1,20 +1,9 @@
 import { BaseRepository, QueryFilters } from "./BaseRepository";
 import { GlucoseRecord } from "@/lib/types";
-import { getSupabaseServer } from "@/lib/database/client";
+import { db } from "@/db/client";
+import { bloodGlucoseLogs } from "@/db/schema";
+import { eq, and, desc, gte, lte, ilike, lt } from "drizzle-orm";
 import { makeTimestamp } from "@/lib/dates";
-
-export interface GlucoseDBRow {
-  id: string;
-  user_id: string;
-  measured_at: string;
-  measured_date: string;
-  glucose_mg_dl: number;
-  category: string;
-  notes: string | null;
-  source: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export type GlucoseRecordInput = {
   date: string;
@@ -24,140 +13,123 @@ export type GlucoseRecordInput = {
   source?: string;
 };
 
-export function mapGlucoseRowToDomain(row: GlucoseDBRow): GlucoseRecord {
-  const dateObj = new Date(row.measured_at);
+export function mapGlucoseRowToDomain(row: any): GlucoseRecord {
+  const dateObj = new Date(row.measuredAt);
   const timeStr = dateObj.toTimeString().split(" ")[0].slice(0, 5); // HH:MM
 
   return {
     id: row.id,
     kind: "glucose",
-    date: row.measured_date,
+    date: row.measuredDate,
     time: timeStr,
-    timestamp: row.measured_at,
+    timestamp: row.measuredAt.toISOString(),
     notes: row.notes ?? undefined,
-    glucoseMgDl: row.glucose_mg_dl,
+    glucoseMgDl: row.glucoseMgDl,
     category: row.category,
   };
 }
 
 export class GlucoseRepository implements BaseRepository<GlucoseRecord, GlucoseRecordInput, Partial<GlucoseRecordInput>> {
-  private getSupabase() {
-    return getSupabaseServer();
-  }
-
   async findById(userId: string, id: string): Promise<GlucoseRecord | null> {
-    const { data, error } = await this.getSupabase()
-      .from("blood_glucose_logs")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("id", id)
-      .maybeSingle();
+    try {
+      const data = await db.select().from(bloodGlucoseLogs).where(
+        and(eq(bloodGlucoseLogs.userId, userId), eq(bloodGlucoseLogs.id, id))
+      ).limit(1);
 
-    if (error) {
+      if (!data || data.length === 0) return null;
+      return mapGlucoseRowToDomain(data[0]);
+    } catch (error) {
       console.error("Error in GlucoseRepository.findById:", error);
       throw error;
     }
-    return data ? mapGlucoseRowToDomain(data) : null;
   }
 
   async findMany(filters: QueryFilters): Promise<GlucoseRecord[]> {
-    let query = this.getSupabase()
-      .from("blood_glucose_logs")
-      .select("*")
-      .eq("user_id", filters.userId)
-      .order("measured_at", { ascending: false });
+    try {
+      const conditions = [eq(bloodGlucoseLogs.userId, filters.userId)];
 
-    if (filters.from) {
-      query = query.gte("measured_at", filters.from);
-    }
-    if (filters.to) {
-      query = query.lte("measured_at", filters.to);
-    }
-    if (filters.search) {
-      query = query.ilike("notes", `%${filters.search}%`);
-    }
-    if (filters.cursor) {
-      query = query.lt("measured_at", filters.cursor);
-    }
-    if (filters.limit) {
-      query = query.limit(filters.limit);
-    }
+      if (filters.from) conditions.push(gte(bloodGlucoseLogs.measuredAt, new Date(filters.from)));
+      if (filters.to) conditions.push(lte(bloodGlucoseLogs.measuredAt, new Date(filters.to)));
+      if (filters.search) conditions.push(ilike(bloodGlucoseLogs.notes, `%${filters.search}%`));
+      if (filters.cursor) conditions.push(lt(bloodGlucoseLogs.measuredAt, new Date(filters.cursor)));
 
-    const { data, error } = await query;
-    if (error) {
+      const query = db.select().from(bloodGlucoseLogs)
+        .where(and(...conditions))
+        .orderBy(desc(bloodGlucoseLogs.measuredAt));
+
+      if (filters.limit) {
+        query.limit(filters.limit);
+      }
+
+      const data = await query;
+      return data.map(mapGlucoseRowToDomain);
+    } catch (error) {
       console.error("Error in GlucoseRepository.findMany:", error);
       throw error;
     }
-
-    return (data as GlucoseDBRow[]).map(mapGlucoseRowToDomain);
   }
 
   async create(userId: string, data: GlucoseRecordInput): Promise<GlucoseRecord> {
-    const measuredAt = makeTimestamp(data.date, data.time);
-    
-    const { data: row, error } = await this.getSupabase()
-      .from("blood_glucose_logs")
-      .insert({
-        user_id: userId,
-        measured_at: measuredAt,
-        glucose_mg_dl: data.glucoseMgDl,
+    try {
+      const measuredAt = new Date(makeTimestamp(data.date, data.time));
+      
+      const payload: any = {
+        userId,
+        measuredAt,
+        glucoseMgDl: data.glucoseMgDl,
         notes: data.notes ?? null,
         source: data.source ?? "manual",
-      })
-      .select()
-      .single();
+      };
 
-    if (error) {
+      const [row] = await db.insert(bloodGlucoseLogs).values(payload).returning();
+      return mapGlucoseRowToDomain(row);
+    } catch (error) {
       console.error("Error in GlucoseRepository.create:", error);
       throw error;
     }
-
-    return mapGlucoseRowToDomain(row);
   }
 
   async update(userId: string, id: string, data: Partial<GlucoseRecordInput>): Promise<GlucoseRecord> {
-    const updatePayload: Record<string, any> = {};
+    try {
+      const updatePayload: Record<string, any> = {};
 
-    if (data.date !== undefined || data.time !== undefined) {
-      if (data.date === undefined || data.time === undefined) {
-        throw new Error("Both date and time must be provided when updating the timestamp.");
+      if (data.date !== undefined || data.time !== undefined) {
+        if (data.date === undefined || data.time === undefined) {
+          throw new Error("Both date and time must be provided when updating the timestamp.");
+        }
+        updatePayload.measuredAt = new Date(makeTimestamp(data.date, data.time));
       }
-      updatePayload.measured_at = makeTimestamp(data.date, data.time);
-    }
 
-    if (data.glucoseMgDl !== undefined) updatePayload.glucose_mg_dl = data.glucoseMgDl;
-    if (data.notes !== undefined) updatePayload.notes = data.notes;
-    if (data.source !== undefined) updatePayload.source = data.source;
+      if (data.glucoseMgDl !== undefined) updatePayload.glucoseMgDl = data.glucoseMgDl;
+      if (data.notes !== undefined) updatePayload.notes = data.notes;
+      if (data.source !== undefined) updatePayload.source = data.source;
 
-    updatePayload.updated_at = new Date().toISOString();
+      updatePayload.updatedAt = new Date();
 
-    const { data: row, error } = await this.getSupabase()
-      .from("blood_glucose_logs")
-      .update(updatePayload)
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select()
-      .single();
+      const [row] = await db.update(bloodGlucoseLogs)
+        .set(updatePayload)
+        .where(and(eq(bloodGlucoseLogs.userId, userId), eq(bloodGlucoseLogs.id, id)))
+        .returning();
 
-    if (error) {
+      if (!row) throw new Error("Not found");
+
+      return mapGlucoseRowToDomain(row);
+    } catch (error) {
       console.error("Error in GlucoseRepository.update:", error);
       throw error;
     }
-
-    return mapGlucoseRowToDomain(row);
   }
 
   async delete(userId: string, id: string): Promise<boolean> {
-    const { error } = await this.getSupabase()
-      .from("blood_glucose_logs")
-      .delete()
-      .eq("user_id", userId)
-      .eq("id", id);
-
-    if (error) {
+    try {
+      const [row] = await db.delete(bloodGlucoseLogs)
+        .where(and(eq(bloodGlucoseLogs.userId, userId), eq(bloodGlucoseLogs.id, id)))
+        .returning({ id: bloodGlucoseLogs.id });
+        
+      return !!row;
+    } catch (error) {
       console.error("Error in GlucoseRepository.delete:", error);
       throw error;
     }
-    return true;
   }
 }

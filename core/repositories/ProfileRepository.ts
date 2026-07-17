@@ -1,4 +1,6 @@
-import { getSupabaseServer } from "@/lib/database/client";
+import { db } from "@/db/client";
+import { userProfiles } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export interface UserProfile {
   userId: string;
@@ -8,66 +10,52 @@ export interface UserProfile {
   heightCm?: number;
 }
 
-export interface ProfileDBRow {
-  user_id: string;
-  date_of_birth: string | null;
-  age_fallback: number | null;
-  sex: string | null;
-  height_cm: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export function mapProfileRowToDomain(row: ProfileDBRow): UserProfile {
+export function mapProfileRowToDomain(row: any): UserProfile {
   return {
-    userId: row.user_id,
-    dateOfBirth: row.date_of_birth ?? undefined,
-    ageFallback: row.age_fallback ?? undefined,
+    userId: row.userId,
+    dateOfBirth: row.dateOfBirth ?? undefined,
+    ageFallback: row.ageFallback ?? undefined,
     sex: (row.sex as UserProfile["sex"]) ?? undefined,
-    heightCm: row.height_cm ? Number(row.height_cm) : undefined,
+    heightCm: row.heightCm ? Number(row.heightCm) : undefined,
   };
 }
 
 export class ProfileRepository {
-  private getSupabase() {
-    return getSupabaseServer();
-  }
-
   async findByUserId(userId: string): Promise<UserProfile | null> {
-    const { data, error } = await this.getSupabase()
-      .from("user_profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const data = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+      if (!data || data.length === 0) return null;
+      return mapProfileRowToDomain(data[0]);
+    } catch (error) {
       console.error("Error in ProfileRepository.findByUserId:", error);
       throw error;
     }
-    return data ? mapProfileRowToDomain(data) : null;
   }
 
   async upsert(userId: string, data: Partial<Omit<UserProfile, "userId">>): Promise<UserProfile> {
-    const payload: Record<string, any> = {
-      user_id: userId,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const payload: Record<string, any> = {
+        userId,
+        updatedAt: new Date(),
+      };
 
-    if (data.dateOfBirth !== undefined) payload.date_of_birth = data.dateOfBirth || null;
-    if (data.ageFallback !== undefined) payload.age_fallback = data.ageFallback ?? null;
-    if (data.sex !== undefined) payload.sex = data.sex || null;
-    if (data.heightCm !== undefined) payload.height_cm = data.heightCm ?? null;
+      if (data.dateOfBirth !== undefined) payload.dateOfBirth = data.dateOfBirth || null;
+      if (data.ageFallback !== undefined) payload.ageFallback = data.ageFallback ?? null;
+      if (data.sex !== undefined) payload.sex = data.sex || null;
+      if (data.heightCm !== undefined) payload.heightCm = data.heightCm ? String(data.heightCm) : null;
 
-    const { data: row, error } = await this.getSupabase()
-      .from("user_profiles")
-      .upsert(payload, { onConflict: "user_id" })
-      .select()
-      .single();
+      const [row] = await db.insert(userProfiles)
+        .values(payload as any)
+        .onConflictDoUpdate({
+          target: userProfiles.userId,
+          set: payload
+        })
+        .returning();
 
-    if (error) {
+      return mapProfileRowToDomain(row);
+    } catch (error) {
       console.error("Error in ProfileRepository.upsert:", error);
       throw error;
     }
-    return mapProfileRowToDomain(row);
   }
 }

@@ -1,4 +1,6 @@
-import { getSupabaseServer } from "@/lib/database/client";
+import { db } from "@/db/client";
+import { users, userPreferences, userProfiles, userGoals } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export interface UserRow {
   id: string; // Clerk userId
@@ -8,102 +10,92 @@ export interface UserRow {
   updated_at?: string;
 }
 
+function mapUser(dbUser: any): UserRow {
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    display_name: dbUser.displayName,
+    created_at: dbUser.createdAt?.toISOString(),
+    updated_at: dbUser.updatedAt?.toISOString(),
+  };
+}
+
 export class UserRepository {
-  private getSupabase() {
-    return getSupabaseServer();
-  }
-
   async findById(id: string): Promise<UserRow | null> {
-    const { data, error } = await this.getSupabase()
-      .from("users")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const data = await db.select().from(users).where(eq(users.id, id)).limit(1);
+      if (!data || data.length === 0) return null;
+      return mapUser(data[0]);
+    } catch (error) {
       console.error("Error in UserRepository.findById:", error);
       throw error;
     }
-    return data;
   }
 
   async syncNewUser(user: UserRow): Promise<UserRow> {
-    const supabase = this.getSupabase();
-    
-    // 1. Sync Clerk user into users table
-    const { data: newUser, error: userError } = await supabase
-      .from("users")
-      .upsert({
+    try {
+      // 1. Sync Clerk user into users table
+      const [newUser] = await db.insert(users).values({
         id: user.id,
         email: user.email,
-        display_name: user.display_name,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+        displayName: user.display_name,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: user.email,
+          displayName: user.display_name,
+          updatedAt: new Date(),
+        }
+      }).returning();
 
-    if (userError) {
-      console.error("Error in UserRepository.syncNewUser (users table):", userError);
-      throw userError;
-    }
-
-    // 2. Provision default preferences
-    const { error: prefError } = await supabase
-      .from("user_preferences")
-      .upsert({
-        user_id: user.id,
-        weight_unit: "kg",
-        height_unit: "cm",
-        glucose_unit: "mg/dL",
+      // 2. Provision default preferences
+      await db.insert(userPreferences).values({
+        userId: user.id,
+        weightUnit: "kg",
+        heightUnit: "cm",
+        glucoseUnit: "mg/dL",
         timezone: process.env.APP_TIMEZONE || "Asia/Kolkata",
         theme: "system",
-      }, { onConflict: "user_id" });
+      }).onConflictDoNothing({ target: userPreferences.userId });
 
-    if (prefError) {
-      console.error("Error provisioning user_preferences in sync:", prefError);
+      // 3. Provision default empty profile
+      await db.insert(userProfiles).values({
+        userId: user.id,
+      }).onConflictDoNothing({ target: userProfiles.userId });
+
+      // 4. Provision default empty goals
+      await db.insert(userGoals).values({
+        userId: user.id,
+      }).onConflictDoNothing({ target: userGoals.userId });
+
+      return mapUser(newUser);
+    } catch (error) {
+      console.error("Error in UserRepository.syncNewUser:", error);
+      throw error;
     }
-
-    // 3. Provision default empty profile
-    const { error: profileError } = await supabase
-      .from("user_profiles")
-      .upsert({
-        user_id: user.id,
-      }, { onConflict: "user_id" });
-
-    if (profileError) {
-      console.error("Error provisioning user_profiles in sync:", profileError);
-    }
-
-    // 4. Provision default empty goals
-    const { error: goalError } = await supabase
-      .from("user_goals")
-      .upsert({
-        user_id: user.id,
-      }, { onConflict: "user_id" });
-
-    if (goalError) {
-      console.error("Error provisioning user_goals in sync:", goalError);
-    }
-
-    return newUser;
   }
 
   async upsert(user: UserRow): Promise<UserRow> {
-    const { data: updated, error } = await this.getSupabase()
-      .from("users")
-      .upsert({
+    try {
+      const [updated] = await db.insert(users).values({
         id: user.id,
         email: user.email,
-        display_name: user.display_name,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) {
+        displayName: user.display_name,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: users.id,
+        set: {
+          email: user.email,
+          displayName: user.display_name,
+          updatedAt: new Date(),
+        }
+      }).returning();
+      
+      return mapUser(updated);
+    } catch (error) {
       console.error("Error in UserRepository.upsert:", error);
       throw error;
     }
-    return updated;
   }
 }

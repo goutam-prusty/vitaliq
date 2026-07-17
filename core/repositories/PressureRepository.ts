@@ -1,22 +1,9 @@
 import { BaseRepository, QueryFilters } from "./BaseRepository";
 import { PressureRecord } from "@/lib/types";
-import { getSupabaseServer } from "@/lib/database/client";
+import { db } from "@/db/client";
+import { bloodPressureLogs } from "@/db/schema";
+import { eq, and, desc, gte, lte, ilike, lt } from "drizzle-orm";
 import { makeTimestamp } from "@/lib/dates";
-
-export interface PressureDBRow {
-  id: string;
-  user_id: string;
-  measured_at: string;
-  measured_date: string;
-  systolic: number;
-  diastolic: number;
-  pulse: number | null;
-  category: string;
-  notes: string | null;
-  source: string;
-  created_at: string;
-  updated_at: string;
-}
 
 export type PressureRecordInput = {
   date: string;
@@ -28,16 +15,16 @@ export type PressureRecordInput = {
   source?: string;
 };
 
-export function mapPressureRowToDomain(row: PressureDBRow): PressureRecord {
-  const dateObj = new Date(row.measured_at);
+export function mapPressureRowToDomain(row: any): PressureRecord {
+  const dateObj = new Date(row.measuredAt);
   const timeStr = dateObj.toTimeString().split(" ")[0].slice(0, 5); // HH:MM
 
   return {
     id: row.id,
     kind: "pressure",
-    date: row.measured_date,
+    date: row.measuredDate,
     time: timeStr,
-    timestamp: row.measured_at,
+    timestamp: row.measuredAt.toISOString(),
     notes: row.notes ?? undefined,
     systolic: row.systolic,
     diastolic: row.diastolic,
@@ -47,127 +34,110 @@ export function mapPressureRowToDomain(row: PressureDBRow): PressureRecord {
 }
 
 export class PressureRepository implements BaseRepository<PressureRecord, PressureRecordInput, Partial<PressureRecordInput>> {
-  private getSupabase() {
-    return getSupabaseServer();
-  }
-
   async findById(userId: string, id: string): Promise<PressureRecord | null> {
-    const { data, error } = await this.getSupabase()
-      .from("blood_pressure_logs")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("id", id)
-      .maybeSingle();
+    try {
+      const data = await db.select().from(bloodPressureLogs).where(
+        and(eq(bloodPressureLogs.userId, userId), eq(bloodPressureLogs.id, id))
+      ).limit(1);
 
-    if (error) {
+      if (!data || data.length === 0) return null;
+      return mapPressureRowToDomain(data[0]);
+    } catch (error) {
       console.error("Error in PressureRepository.findById:", error);
       throw error;
     }
-    return data ? mapPressureRowToDomain(data) : null;
   }
 
   async findMany(filters: QueryFilters): Promise<PressureRecord[]> {
-    let query = this.getSupabase()
-      .from("blood_pressure_logs")
-      .select("*")
-      .eq("user_id", filters.userId)
-      .order("measured_at", { ascending: false });
+    try {
+      const conditions = [eq(bloodPressureLogs.userId, filters.userId)];
 
-    if (filters.from) {
-      query = query.gte("measured_at", filters.from);
-    }
-    if (filters.to) {
-      query = query.lte("measured_at", filters.to);
-    }
-    if (filters.search) {
-      query = query.ilike("notes", `%${filters.search}%`);
-    }
-    if (filters.cursor) {
-      query = query.lt("measured_at", filters.cursor);
-    }
-    if (filters.limit) {
-      query = query.limit(filters.limit);
-    }
+      if (filters.from) conditions.push(gte(bloodPressureLogs.measuredAt, new Date(filters.from)));
+      if (filters.to) conditions.push(lte(bloodPressureLogs.measuredAt, new Date(filters.to)));
+      if (filters.search) conditions.push(ilike(bloodPressureLogs.notes, `%${filters.search}%`));
+      if (filters.cursor) conditions.push(lt(bloodPressureLogs.measuredAt, new Date(filters.cursor)));
 
-    const { data, error } = await query;
-    if (error) {
+      const query = db.select().from(bloodPressureLogs)
+        .where(and(...conditions))
+        .orderBy(desc(bloodPressureLogs.measuredAt));
+
+      if (filters.limit) {
+        query.limit(filters.limit);
+      }
+
+      const data = await query;
+      return data.map(mapPressureRowToDomain);
+    } catch (error) {
       console.error("Error in PressureRepository.findMany:", error);
       throw error;
     }
-
-    return (data as PressureDBRow[]).map(mapPressureRowToDomain);
   }
 
   async create(userId: string, data: PressureRecordInput): Promise<PressureRecord> {
-    const measuredAt = makeTimestamp(data.date, data.time);
-    
-    const { data: row, error } = await this.getSupabase()
-      .from("blood_pressure_logs")
-      .insert({
-        user_id: userId,
-        measured_at: measuredAt,
+    try {
+      const measuredAt = new Date(makeTimestamp(data.date, data.time));
+      
+      const payload: any = {
+        userId,
+        measuredAt,
         systolic: data.systolic,
         diastolic: data.diastolic,
         pulse: data.pulse ?? null,
         notes: data.notes ?? null,
         source: data.source ?? "manual",
-      })
-      .select()
-      .single();
+      };
 
-    if (error) {
+      const [row] = await db.insert(bloodPressureLogs).values(payload).returning();
+      return mapPressureRowToDomain(row);
+    } catch (error) {
       console.error("Error in PressureRepository.create:", error);
       throw error;
     }
-
-    return mapPressureRowToDomain(row);
   }
 
   async update(userId: string, id: string, data: Partial<PressureRecordInput>): Promise<PressureRecord> {
-    const updatePayload: Record<string, any> = {};
+    try {
+      const updatePayload: Record<string, any> = {};
 
-    if (data.date !== undefined || data.time !== undefined) {
-      if (data.date === undefined || data.time === undefined) {
-        throw new Error("Both date and time must be provided when updating the timestamp.");
+      if (data.date !== undefined || data.time !== undefined) {
+        if (data.date === undefined || data.time === undefined) {
+          throw new Error("Both date and time must be provided when updating the timestamp.");
+        }
+        updatePayload.measuredAt = new Date(makeTimestamp(data.date, data.time));
       }
-      updatePayload.measured_at = makeTimestamp(data.date, data.time);
-    }
 
-    if (data.systolic !== undefined) updatePayload.systolic = data.systolic;
-    if (data.diastolic !== undefined) updatePayload.diastolic = data.diastolic;
-    if (data.pulse !== undefined) updatePayload.pulse = data.pulse;
-    if (data.notes !== undefined) updatePayload.notes = data.notes;
-    if (data.source !== undefined) updatePayload.source = data.source;
+      if (data.systolic !== undefined) updatePayload.systolic = data.systolic;
+      if (data.diastolic !== undefined) updatePayload.diastolic = data.diastolic;
+      if (data.pulse !== undefined) updatePayload.pulse = data.pulse;
+      if (data.notes !== undefined) updatePayload.notes = data.notes;
+      if (data.source !== undefined) updatePayload.source = data.source;
 
-    updatePayload.updated_at = new Date().toISOString();
+      updatePayload.updatedAt = new Date();
 
-    const { data: row, error } = await this.getSupabase()
-      .from("blood_pressure_logs")
-      .update(updatePayload)
-      .eq("user_id", userId)
-      .eq("id", id)
-      .select()
-      .single();
+      const [row] = await db.update(bloodPressureLogs)
+        .set(updatePayload)
+        .where(and(eq(bloodPressureLogs.userId, userId), eq(bloodPressureLogs.id, id)))
+        .returning();
 
-    if (error) {
+      if (!row) throw new Error("Not found");
+
+      return mapPressureRowToDomain(row);
+    } catch (error) {
       console.error("Error in PressureRepository.update:", error);
       throw error;
     }
-
-    return mapPressureRowToDomain(row);
   }
 
   async delete(userId: string, id: string): Promise<boolean> {
-    const { error } = await this.getSupabase()
-      .from("blood_pressure_logs")
-      .delete()
-      .eq("user_id", userId)
-      .eq("id", id);
-
-    if (error) {
+    try {
+      const [row] = await db.delete(bloodPressureLogs)
+        .where(and(eq(bloodPressureLogs.userId, userId), eq(bloodPressureLogs.id, id)))
+        .returning({ id: bloodPressureLogs.id });
+        
+      return !!row;
+    } catch (error) {
       console.error("Error in PressureRepository.delete:", error);
       throw error;
     }
-    return true;
   }
 }
