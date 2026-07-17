@@ -15,6 +15,20 @@ export type PressureRecordInput = {
   source?: string;
 };
 
+function getPressureCategory(systolic: number, diastolic: number): string {
+  if (systolic >= 140 || diastolic >= 90) return 'Hypertension Stage 2';
+  if (systolic >= 130 || diastolic >= 80) return 'Hypertension Stage 1';
+  if (systolic >= 120 && systolic < 130 && diastolic < 80) return 'Elevated';
+  return 'Normal';
+}
+
+function getMeasuredDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function mapPressureRowToDomain(row: any): PressureRecord {
   const dateObj = new Date(row.measuredAt);
   const timeStr = dateObj.toTimeString().split(" ")[0].slice(0, 5); // HH:MM
@@ -22,14 +36,14 @@ export function mapPressureRowToDomain(row: any): PressureRecord {
   return {
     id: row.id,
     kind: "pressure",
-    date: row.measuredDate,
+    date: getMeasuredDate(dateObj),
     time: timeStr,
     timestamp: row.measuredAt.toISOString(),
     notes: row.notes ?? undefined,
     systolic: row.systolic,
     diastolic: row.diastolic,
     pulse: row.pulse ?? undefined,
-    category: row.category,
+    category: getPressureCategory(row.systolic, row.diastolic),
   };
 }
 

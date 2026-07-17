@@ -13,6 +13,19 @@ export type GlucoseRecordInput = {
   source?: string;
 };
 
+function getGlucoseCategory(glucose: number): string {
+  if (glucose >= 126) return 'Diabetes';
+  if (glucose >= 100) return 'Prediabetes';
+  return 'Normal';
+}
+
+function getMeasuredDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function mapGlucoseRowToDomain(row: any): GlucoseRecord {
   const dateObj = new Date(row.measuredAt);
   const timeStr = dateObj.toTimeString().split(" ")[0].slice(0, 5); // HH:MM
@@ -20,12 +33,12 @@ export function mapGlucoseRowToDomain(row: any): GlucoseRecord {
   return {
     id: row.id,
     kind: "glucose",
-    date: row.measuredDate,
+    date: getMeasuredDate(dateObj),
     time: timeStr,
     timestamp: row.measuredAt.toISOString(),
     notes: row.notes ?? undefined,
     glucoseMgDl: row.glucoseMgDl,
-    category: row.category,
+    category: getGlucoseCategory(row.glucoseMgDl),
   };
 }
 

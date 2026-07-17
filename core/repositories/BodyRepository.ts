@@ -27,21 +27,47 @@ export type BodyRecordInput = {
   source?: string;
 };
 
+function getBmiCategory(bmi?: number | null): string | undefined {
+  if (bmi === undefined || bmi === null) return undefined;
+  if (bmi < 18.5) return 'Underweight';
+  if (bmi < 25) return 'Normal';
+  if (bmi < 30) return 'Overweight';
+  return 'Obese';
+}
+
+function getBodyFatCategory(bf?: number | null): string | undefined {
+  if (bf === undefined || bf === null) return undefined;
+  if (bf < 6) return 'Essential Fat';
+  if (bf < 14) return 'Athletic';
+  if (bf < 18) return 'Fitness';
+  if (bf < 25) return 'Average';
+  return 'Obese';
+}
+
+function getMeasuredDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function mapBodyRowToDomain(row: any): BodyRecord {
   // row.measuredAt is a Date in drizzle schema for timestamp
   const dateObj = new Date(row.measuredAt);
   const timeStr = dateObj.toTimeString().split(" ")[0].slice(0, 5); // HH:MM
+  const bmiVal = row.bmi ? Number(row.bmi) : undefined;
+  const bfVal = row.bodyFatPct ? Number(row.bodyFatPct) : undefined;
 
   return {
     id: row.id,
     kind: "body",
-    date: row.measuredDate,
+    date: getMeasuredDate(dateObj),
     time: timeStr,
     timestamp: row.measuredAt.toISOString(),
     notes: row.notes ?? undefined,
     weightKg: Number(row.weightKg),
-    bmi: row.bmi ? Number(row.bmi) : undefined,
-    bodyFatPercent: row.bodyFatPct ? Number(row.bodyFatPct) : undefined,
+    bmi: bmiVal,
+    bodyFatPercent: bfVal,
     muscleRatePercent: row.muscleRatePct ? Number(row.muscleRatePct) : undefined,
     bodyWaterPercent: row.bodyWaterPct ? Number(row.bodyWaterPct) : undefined,
     boneMassKg: row.boneMassKg ? Number(row.boneMassKg) : undefined,
@@ -54,8 +80,8 @@ export function mapBodyRowToDomain(row: any): BodyRecord {
     weightWithoutFatKg: row.weightWithoutFatKg ? Number(row.weightWithoutFatKg) : undefined,
     obesityLevel: row.obesityLevel ?? undefined,
     skeletalMuscleMassKg: row.skeletalMuscleMassKg ? Number(row.skeletalMuscleMassKg) : undefined,
-    bmiCategory: row.bmiCategory ?? undefined,
-    bodyFatCategory: row.bodyFatCategory ?? undefined,
+    bmiCategory: getBmiCategory(bmiVal),
+    bodyFatCategory: getBodyFatCategory(bfVal),
   };
 }
 

@@ -1,0 +1,66 @@
+name: Database Validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  schema-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Migrations
+        run: pnpm drizzle-kit generate
+        
+      - name: Verify No Schema Drift
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Schema drift detected! Generated migrations changed tracked files."
+            git status
+            exit 1
+          fi
+
+  push-validation:
+    runs-on: ubuntu-latest
+    # Only run if DATABASE_URL is provided in secrets
+    if: ${{ secrets.DATABASE_URL != '' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Push Schema
+        run: pnpm drizzle-kit push
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

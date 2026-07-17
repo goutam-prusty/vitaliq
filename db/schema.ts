@@ -59,7 +59,6 @@ export const bodyCompositionLogs = pgTable("body_composition_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   measuredAt: timestamp("measured_at", { withTimezone: true }).notNull(),
-  measuredDate: date("measured_date").generatedAlwaysAs(sql`(measured_at::date)`),
   weightKg: numeric("weight_kg", { precision: 5, scale: 1 }).notNull(),
   bmi: numeric("bmi", { precision: 4, scale: 1 }),
   bodyFatPct: numeric("body_fat_pct", { precision: 4, scale: 1 }),
@@ -76,82 +75,39 @@ export const bodyCompositionLogs = pgTable("body_composition_logs", {
   obesityLevel: text("obesity_level"),
   skeletalMuscleMassKg: numeric("skeletal_muscle_mass_kg", { precision: 5, scale: 1 }),
   
-  bmiCategory: text("bmi_category").generatedAlwaysAs(sql`
-    CASE
-      WHEN bmi IS NULL THEN NULL
-      WHEN bmi < 18.5 THEN 'Underweight'
-      WHEN bmi < 25 THEN 'Normal'
-      WHEN bmi < 30 THEN 'Overweight'
-      ELSE 'Obese'
-    END
-  `),
-  bodyFatCategory: text("body_fat_category").generatedAlwaysAs(sql`
-    CASE
-      WHEN body_fat_pct IS NULL THEN NULL
-      WHEN body_fat_pct < 6 THEN 'Essential Fat'
-      WHEN body_fat_pct < 14 THEN 'Athletic'
-      WHEN body_fat_pct < 18 THEN 'Fitness'
-      WHEN body_fat_pct < 25 THEN 'Average'
-      ELSE 'Obese'
-    END
-  `),
-  
   notes: text("notes"),
   source: text("source").default('manual'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  index("idx_body_user_time").on(table.userId, table.measuredAt.desc()),
-  index("idx_body_user_date").on(table.userId, table.measuredDate.desc()),
+  index("idx_body_user_time").on(table.userId, table.measuredAt.desc())
 ]);
 
 export const bloodPressureLogs = pgTable("blood_pressure_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   measuredAt: timestamp("measured_at", { withTimezone: true }).notNull(),
-  measuredDate: date("measured_date").generatedAlwaysAs(sql`(measured_at::date)`),
   systolic: smallint("systolic").notNull(),
   diastolic: smallint("diastolic").notNull(),
   pulse: smallint("pulse"),
-  
-  category: text("category").generatedAlwaysAs(sql`
-    CASE
-      WHEN systolic >= 140 OR diastolic >= 90 THEN 'Hypertension Stage 2'
-      WHEN systolic >= 130 OR diastolic >= 80 THEN 'Hypertension Stage 1'
-      WHEN systolic >= 120 AND systolic < 130 AND diastolic < 80 THEN 'Elevated'
-      ELSE 'Normal'
-    END
-  `),
   
   notes: text("notes"),
   source: text("source").default('manual'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  index("idx_bp_user_time").on(table.userId, table.measuredAt.desc()),
-  index("idx_bp_user_date").on(table.userId, table.measuredDate.desc()),
+  index("idx_bp_user_time").on(table.userId, table.measuredAt.desc())
 ]);
 
 export const bloodGlucoseLogs = pgTable("blood_glucose_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   measuredAt: timestamp("measured_at", { withTimezone: true }).notNull(),
-  measuredDate: date("measured_date").generatedAlwaysAs(sql`(measured_at::date)`),
   glucoseMgDl: smallint("glucose_mg_dl").notNull(),
-  
-  category: text("category").generatedAlwaysAs(sql`
-    CASE
-      WHEN glucose_mg_dl >= 126 THEN 'Diabetes'
-      WHEN glucose_mg_dl >= 100 THEN 'Prediabetes'
-      ELSE 'Normal'
-    END
-  `),
-  
   notes: text("notes"),
   source: text("source").default('manual'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-  index("idx_glucose_user_time").on(table.userId, table.measuredAt.desc()),
-  index("idx_glucose_user_date").on(table.userId, table.measuredDate.desc()),
+  index("idx_glucose_user_time").on(table.userId, table.measuredAt.desc())
 ]);
