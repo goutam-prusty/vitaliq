@@ -1,0 +1,16 @@
+{
+  "name": "Vitaliq Health",
+  "short_name": "Vitaliq",
+  "description": "A modern health analytics platform for tracking long-term health metrics.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#fafaf8",
+  "theme_color": "#146f65",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

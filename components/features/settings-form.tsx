@@ -6,25 +6,25 @@ import { ageFromDateOfBirth } from "@/lib/dates";
 import type { AppSettings } from "@/lib/types";
 import { Button, Field, Input, Panel, Select, Textarea } from "@/components/ui";
 import { updateSettingsAction } from "@/lib/actions/settings";
+import { useToast } from "@/components/toast";
 
 export function SettingsForm({ initialSettings }: { initialSettings: AppSettings }) {
   const [form, setForm] = useState<AppSettings>(initialSettings);
-  const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const age = ageFromDateOfBirth(form.dateOfBirth) ?? form.ageFallback;
 
   async function handleSave() {
     setIsSaving(true);
-    setMessage("Saving...");
     const response = await updateSettingsAction(form);
     setIsSaving(false);
     
     if (response.success) {
-      setMessage("Settings saved.");
+      toast("Settings saved successfully.", "success");
       setForm(response.data);
     } else {
-      setMessage(response.error || "Unable to save settings.");
+      toast(response.error || "Unable to save settings.", "error");
     }
   }
 
@@ -198,7 +198,6 @@ export function SettingsForm({ initialSettings }: { initialSettings: AppSettings
           <Save className="h-4 w-4" />
           {isSaving ? "Saving..." : "Save settings"}
         </Button>
-        <span className="text-sm text-[rgb(var(--muted))]">{message}</span>
       </div>
     </>
   );

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Plus, Check, AlertCircle } from "lucide-react";
+import { Plus } from "lucide-react";
 import { LogKind, AppSettings } from "@/lib/types";
-import { Button, Field, Input, Panel, Select, Textarea } from "@/components/ui";
+import { Button, Field, Input, Textarea } from "@/components/ui";
 import { createRecordAction } from "@/lib/actions/records";
 import { nowParts } from "@/lib/dates";
+import { useToast } from "@/components/toast";
 
 interface LogFormProps {
   settings: AppSettings;
@@ -15,8 +16,7 @@ interface LogFormProps {
 export function LogForm({ settings, onSaveSuccess }: LogFormProps) {
   const [activeTab, setActiveTab] = useState<LogKind>("body");
   const [isPending, startTransition] = useTransition();
-  const [statusMessage, setStatusMessage] = useState("");
-  const [success, setSuccess] = useState(false);
+  const { toast } = useToast();
   
   // Validation errors from Server Action
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
@@ -36,8 +36,6 @@ export function LogForm({ settings, onSaveSuccess }: LogFormProps) {
       notes: "",
     });
     setValidationErrors({});
-    setStatusMessage("");
-    setSuccess(false);
   };
 
   useEffect(() => {
@@ -47,8 +45,6 @@ export function LogForm({ settings, onSaveSuccess }: LogFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationErrors({});
-    setStatusMessage("Saving...");
-    setSuccess(false);
 
     // Build correct payload based on active category tab
     let payload: Record<string, any> = {
@@ -94,8 +90,7 @@ export function LogForm({ settings, onSaveSuccess }: LogFormProps) {
       try {
         const response = await createRecordAction(activeTab, payload);
         if (response.success) {
-          setSuccess(true);
-          setStatusMessage("Saved successfully.");
+          toast(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} record saved successfully.`, "success");
           // Clear inputs
           setBody({ weightKg: "" });
           setPressure({ systolic: "", diastolic: "" });
@@ -106,15 +101,13 @@ export function LogForm({ settings, onSaveSuccess }: LogFormProps) {
             onSaveSuccess();
           }
         } else {
-          setSuccess(false);
-          setStatusMessage(response.error || "Failed to save record.");
+          toast(response.error || "Failed to save record.", "error");
           if (response.validationErrors) {
             setValidationErrors(response.validationErrors);
           }
         }
       } catch (err: any) {
-        setSuccess(false);
-        setStatusMessage(err.message || "An unexpected error occurred.");
+        toast(err.message || "An unexpected error occurred.", "error");
       }
     });
   };
@@ -310,17 +303,6 @@ export function LogForm({ settings, onSaveSuccess }: LogFormProps) {
           <span className="flex items-center gap-2"><Plus className="h-4 w-4" />Log {activeTab} record</span>
         )}
       </Button>
-
-      {statusMessage && (
-        <div className={`flex items-center gap-2 text-xs font-semibold p-3 rounded-md mt-2 ${
-          success 
-            ? "bg-[rgb(var(--accent-soft))] text-[rgb(var(--accent))]" 
-            : "bg-[rgb(var(--danger))/10] text-[rgb(var(--danger))]"
-        }`}>
-          {success ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-          <span>{statusMessage}</span>
-        </div>
-      )}
     </form>
   );
 }

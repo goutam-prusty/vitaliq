@@ -8,3 +8,6 @@ coverage
 *.key
 *.xlsx
 !.env.example
+test-results
+playwright-report
+*.tsbuildinfo

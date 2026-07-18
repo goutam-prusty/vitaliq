@@ -64,10 +64,10 @@ export default async function OverviewPage() {
     <Page>
       <header className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <p className="text-sm text-[rgb(var(--muted))]" suppressHydrationWarning>
+          <p className="text-sm font-medium text-[rgb(var(--muted))]" suppressHydrationWarning>
             {settings.name ? `${greeting}, ${settings.name}` : greeting}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-normal md:text-3xl">Overview</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">Overview</h1>
         </div>
         <Link href="/log">
           <Button>
@@ -119,44 +119,44 @@ export default async function OverviewPage() {
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
         {/* Trend Graph */}
-        <Panel className="p-5">
+        <Panel elevation={1}>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-semibold">Recent trend</h2>
-            <Link className="text-sm text-[rgb(var(--accent))]" href="/trends">
-              Explore <ArrowRight className="inline h-3 w-3" />
+            <h2 className="font-semibold tracking-tight text-base">Recent trend</h2>
+            <Link className="text-xs font-semibold text-[rgb(var(--accent))] hover:underline flex items-center gap-1" href="/trends">
+              Explore <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           <MiniChart records={weightRecords as unknown as HealthRecord[]} settings={settings} />
         </Panel>
 
         {/* Goal Targets */}
-        <Panel className="p-5">
-          <div className="flex items-center gap-2">
+        <Panel elevation={1}>
+          <div className="flex items-center gap-2 border-b border-[rgb(var(--border))] pb-3">
             <Target className="h-4 w-4 text-[rgb(var(--accent))]" />
-            <h2 className="font-semibold">Targets</h2>
+            <h2 className="font-semibold tracking-tight text-base">Targets</h2>
           </div>
           <div className="mt-4 grid gap-3 text-sm">
             {settings.targetWeightKg ? (
               <div className="flex justify-between border-b border-[rgb(var(--border))] pb-2">
-                <span className="text-[rgb(var(--muted))]">Target weight</span>
-                <span className="num">{displayWeight(settings.targetWeightKg, settings)}</span>
+                <span className="text-[rgb(var(--muted))] text-xs font-semibold uppercase tracking-wider">Target weight</span>
+                <span className="num font-medium">{displayWeight(settings.targetWeightKg, settings)}</span>
               </div>
             ) : null}
             {goalProgress ? (
               <>
                 <div className="flex justify-between border-b border-[rgb(var(--border))] pb-2">
-                  <span className="text-[rgb(var(--muted))]">Remaining</span>
-                  <span className="num">
+                  <span className="text-[rgb(var(--muted))] text-xs font-semibold uppercase tracking-wider">Remaining</span>
+                  <span className="num font-medium">
                     {displayWeight(Math.abs(goalProgress.remainingWeight), settings)}
                   </span>
                 </div>
                 {goalProgress.percentComplete !== undefined && (
-                  <div className="grid gap-1 border-b border-[rgb(var(--border))] pb-2">
+                  <div className="grid gap-1.5 border-b border-[rgb(var(--border))] pb-2">
                     <div className="flex justify-between">
-                      <span className="text-[rgb(var(--muted))]">Goal progress</span>
-                      <span className="font-semibold">
+                      <span className="text-[rgb(var(--muted))] text-xs font-semibold uppercase tracking-wider">Goal progress</span>
+                      <span className="font-semibold text-xs">
                         {goalProgress.percentComplete < 0 ? "0" : goalProgress.percentComplete.toFixed(0)}%
                       </span>
                     </div>
@@ -172,13 +172,13 @@ export default async function OverviewPage() {
             ) : null}
             {settings.targetBodyFatPercent ? (
               <div className="flex justify-between border-b border-[rgb(var(--border))] pb-2">
-                <span className="text-[rgb(var(--muted))]">Target body fat</span>
-                <span className="num">{settings.targetBodyFatPercent.toFixed(1)}%</span>
+                <span className="text-[rgb(var(--muted))] text-xs font-semibold uppercase tracking-wider">Target body fat</span>
+                <span className="num font-medium">{settings.targetBodyFatPercent.toFixed(1)}%</span>
               </div>
             ) : null}
             {!settings.targetWeightKg && !settings.targetBodyFatPercent ? (
               <Link href="/settings">
-                <SecondaryButton className="w-full">Set a target</SecondaryButton>
+                <SecondaryButton className="w-full mt-2">Set a target</SecondaryButton>
               </Link>
             ) : null}
           </div>
@@ -186,16 +186,16 @@ export default async function OverviewPage() {
       </div>
 
       {/* Activity Logs */}
-      <Panel className="p-5">
-        <h2 className="font-semibold">Recent activity</h2>
-        <div className="mt-4 divide-y divide-[rgb(var(--border))]">
+      <Panel elevation={1}>
+        <h2 className="font-semibold tracking-tight text-base border-b border-[rgb(var(--border))] pb-3">Recent activity</h2>
+        <div className="divide-y divide-[rgb(var(--border))]">
           {recentActivity.length === 0 ? (
-            <div className="py-4 text-center text-sm text-[rgb(var(--muted))]">No recent activity logs.</div>
+            <div className="py-6 text-center text-sm text-[rgb(var(--muted))]">No recent activity logs.</div>
           ) : (
             recentActivity.map((record) => (
               <div className="flex items-center justify-between py-3 text-sm" key={record.id}>
-                <span>{label(record)}</span>
-                <span className="text-[rgb(var(--muted))]" suppressHydrationWarning>
+                <span className="font-medium text-[rgb(var(--text))]">{label(record)}</span>
+                <span className="text-xs text-[rgb(var(--muted))]" suppressHydrationWarning>
                   {stamp(record.timestamp)}
                 </span>
               </div>
@@ -208,7 +208,7 @@ export default async function OverviewPage() {
 }
 
 function Page({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto grid max-w-7xl gap-5 p-4 md:p-8">{children}</div>;
+  return <div className="mx-auto grid max-w-7xl gap-6 lg:gap-8 p-4 md:p-8 w-full">{children}</div>;
 }
 
 interface MetricCardProps {
@@ -225,10 +225,10 @@ function MetricCard({ title, value, sub, sparklineData, trend, avgValue }: Metri
   const trendColor = trend === "up" ? "text-[rgb(var(--danger))]" : trend === "down" ? "text-[rgb(var(--accent))]" : "text-[rgb(var(--muted))]";
 
   return (
-    <Panel className="p-5 flex flex-col justify-between">
+    <Panel className="flex flex-col justify-between" elevation={1}>
       <div>
         <div className="flex items-center justify-between">
-          <div className="text-sm text-[rgb(var(--muted))]">{title}</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--muted))]">{title}</div>
           {trend && (
             <span className={`flex items-center gap-1 text-xs font-semibold ${trendColor}`}>
               <TrendIcon className="h-3.5 w-3.5" />
@@ -236,10 +236,10 @@ function MetricCard({ title, value, sub, sparklineData, trend, avgValue }: Metri
             </span>
           )}
         </div>
-        <div className="num mt-2 text-3xl font-semibold leading-none">{value}</div>
+        <div className="num mt-2 text-3xl font-semibold leading-none tracking-tight">{value}</div>
       </div>
       <div className="flex items-end justify-between mt-4">
-        <div className="grid gap-1">
+        <div className="grid gap-0.5">
           <div className="text-xs text-[rgb(var(--muted))]" suppressHydrationWarning>{sub}</div>
           {avgValue && <div className="text-xs font-semibold text-[rgb(var(--muted))]">{avgValue}</div>}
         </div>
@@ -251,22 +251,22 @@ function MetricCard({ title, value, sub, sparklineData, trend, avgValue }: Metri
 
 function InsightCard({ insight }: { insight: HealthInsight }) {
   const colors: Record<string, string> = {
-    attention: "border-l-4 border-red-500 bg-red-500/5",
-    warning: "border-l-4 border-amber-500 bg-amber-500/5",
-    success: "border-l-4 border-[rgb(var(--accent))] bg-[rgb(var(--accent))]/5",
-    info: "border-l-4 border-blue-500 bg-blue-500/5",
+    attention: "border-l-4 border-[rgb(var(--danger))] bg-[rgb(var(--danger))]/5",
+    warning: "border-l-4 border-[rgb(var(--warn))] bg-[rgb(var(--warn))]/5",
+    success: "border-l-4 border-[rgb(var(--ok))] bg-[rgb(var(--ok))]/5",
+    info: "border-l-4 border-[rgb(var(--accent))] bg-[rgb(var(--accent))]/5",
   };
 
   const titleColors: Record<string, string> = {
-    attention: "text-red-600 dark:text-red-400",
-    warning: "text-amber-600 dark:text-amber-400",
-    success: "text-[rgb(var(--accent))] dark:text-[rgb(var(--accent))]",
-    info: "text-blue-600 dark:text-blue-400",
+    attention: "text-[rgb(var(--danger))]",
+    warning: "text-[rgb(var(--warn))]",
+    success: "text-[rgb(var(--ok))]",
+    info: "text-[rgb(var(--accent))]",
   };
 
   return (
-    <Panel className={`p-4 flex flex-col gap-1 overflow-hidden shadow-xs hover:shadow-sm transition-shadow duration-200 ${colors[insight.severity] || ""}`}>
-      <h4 className={`font-semibold text-sm ${titleColors[insight.severity] || ""}`}>
+    <Panel className={`flex flex-col gap-1 overflow-hidden shadow-xs hover:shadow-sm transition-shadow duration-200 ${colors[insight.severity] || ""}`} elevation={1} variant="compact">
+      <h4 className={`font-semibold text-sm tracking-tight ${titleColors[insight.severity] || ""}`}>
         {insight.title}
       </h4>
       <p className="text-xs text-[rgb(var(--muted))] leading-relaxed flex-1">

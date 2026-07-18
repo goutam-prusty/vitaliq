@@ -25,7 +25,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[232px_1fr]">
+    <div className="min-h-screen flex flex-col lg:grid lg:grid-cols-[232px_1fr]">
       <aside className="hidden border-r border-[rgb(var(--border))] bg-[rgb(var(--panel))] lg:block">
         <div className="sticky top-0 flex h-screen flex-col p-5">
           <div className="flex items-center gap-3">
@@ -56,7 +56,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="pb-20 lg:pb-0">{children}</main>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile Header */}
+        <header className="lg:hidden flex h-14 items-center justify-between border-b border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-4 sticky top-0 z-20">
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-[rgb(var(--accent))]" />
+            <span className="font-semibold text-sm">Vitaliq</span>
+          </div>
+          <UserButton appearance={{ elements: { avatarBox: "h-7 w-7" } }} />
+        </header>
+
+        <main className="flex-1 pb-20 lg:pb-0">{children}</main>
+      </div>
+
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[rgb(var(--border))] bg-[rgb(var(--panel))] lg:hidden">
         {items.map((item) => {
           const Icon = item.icon;
