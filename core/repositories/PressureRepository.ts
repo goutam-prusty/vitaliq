@@ -154,4 +154,32 @@ export class PressureRepository implements BaseRepository<PressureRecord, Pressu
       throw error;
     }
   }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    try {
+      await db.delete(bloodPressureLogs).where(eq(bloodPressureLogs.userId, userId));
+    } catch (error) {
+      console.error("Error in PressureRepository.deleteByUserId:", error);
+      throw error;
+    }
+  }
+
+  async bulkCreate(userId: string, records: any[]): Promise<void> {
+    if (records.length === 0) return;
+    try {
+      const payload = records.map(data => ({
+        userId,
+        measuredAt: new Date(data.measuredAt),
+        systolic: data.systolic,
+        diastolic: data.diastolic,
+        pulse: data.pulse ?? null,
+        notes: data.notes ?? null,
+        source: data.source ?? "manual",
+      }));
+      await db.insert(bloodPressureLogs).values(payload);
+    } catch (error) {
+      console.error("Error in PressureRepository.bulkCreate:", error);
+      throw error;
+    }
+  }
 }

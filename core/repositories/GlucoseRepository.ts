@@ -145,4 +145,30 @@ export class GlucoseRepository implements BaseRepository<GlucoseRecord, GlucoseR
       throw error;
     }
   }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    try {
+      await db.delete(bloodGlucoseLogs).where(eq(bloodGlucoseLogs.userId, userId));
+    } catch (error) {
+      console.error("Error in GlucoseRepository.deleteByUserId:", error);
+      throw error;
+    }
+  }
+
+  async bulkCreate(userId: string, records: any[]): Promise<void> {
+    if (records.length === 0) return;
+    try {
+      const payload = records.map(data => ({
+        userId,
+        measuredAt: new Date(data.measuredAt),
+        glucoseMgDl: data.glucoseMgDl,
+        notes: data.notes ?? null,
+        source: data.source ?? "manual",
+      }));
+      await db.insert(bloodGlucoseLogs).values(payload);
+    } catch (error) {
+      console.error("Error in GlucoseRepository.bulkCreate:", error);
+      throw error;
+    }
+  }
 }

@@ -216,4 +216,38 @@ export class BodyRepository implements BaseRepository<BodyRecord, BodyRecordInpu
       throw error;
     }
   }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    try {
+      await db.delete(bodyCompositionLogs).where(eq(bodyCompositionLogs.userId, userId));
+    } catch (error) {
+      console.error("Error in BodyRepository.deleteByUserId:", error);
+      throw error;
+    }
+  }
+
+  async bulkCreate(userId: string, records: any[]): Promise<void> {
+    if (records.length === 0) return;
+    try {
+      const payload = records.map(data => ({
+        userId,
+        measuredAt: new Date(data.measuredAt),
+        weightKg: String(data.weightKg),
+        bmi: data.bmi !== undefined ? String(data.bmi) : null,
+        bodyFatPct: data.bodyFatPct !== undefined ? String(data.bodyFatPct) : null,
+        muscleRatePct: data.muscleRatePct !== undefined ? String(data.muscleRatePct) : null,
+        bodyWaterPct: data.bodyWaterPct !== undefined ? String(data.bodyWaterPct) : null,
+        boneMassKg: data.boneMassKg !== undefined ? String(data.boneMassKg) : null,
+        proteinMassKg: data.proteinMassKg !== undefined ? String(data.proteinMassKg) : null,
+        muscleMassKg: data.muscleMassKg !== undefined ? String(data.muscleMassKg) : null,
+        weightWithoutFatKg: data.weightWithoutFatKg !== undefined ? String(data.weightWithoutFatKg) : null,
+        notes: data.notes ?? null,
+        source: data.source ?? "manual",
+      }));
+      await db.insert(bodyCompositionLogs).values(payload);
+    } catch (error) {
+      console.error("Error in BodyRepository.bulkCreate:", error);
+      throw error;
+    }
+  }
 }
